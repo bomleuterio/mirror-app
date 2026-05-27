@@ -1,0 +1,5 @@
+node_modules/
+mirror-app/dist/
+mirror-app/electron/
+*.log
+.DS_Store

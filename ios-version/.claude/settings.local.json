@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\Users\\\\Administrator\\\\Documents\\\\trae_projects\\\\mirror App\\\\ios-version\"; $env:PORT = \"3001\"; Start-Process -FilePath \"node\" -ArgumentList \"server.js\" -RedirectStandardOutput \"C:\\\\temp\\\\server2-stdout.txt\" -RedirectStandardError \"C:\\\\temp\\\\server2-stderr.txt\" -NoNewWindow -PassThru | Select-Object Id; Start-Sleep -Seconds 3; Get-Content \"C:\\\\temp\\\\server2-stdout.txt\"; Get-Content \"C:\\\\temp\\\\server2-stderr.txt\")",
+      "PowerShell(Stop-Process -Id 30716 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(node \"C:\\\\temp\\\\test-save-output.js\" 2>&1)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Administrator\\\\Documents\\\\trae_projects\\\\mirror App\\\\ios-version - Copy\" -Force | Where-Object { $_.Name -ne 'node_modules' } | Select-Object -ExpandProperty Name)",
+      "PowerShell(node \"C:\\\\temp\\\\test-mirror.js\" 2>&1)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Administrator\\\\Documents\\\\trae_projects\" -Force | Where-Object { $_.PSIsContainer } | Select-Object -ExpandProperty Name)",
+      "PowerShell(schtasks /query /tn \"Run the Node server hidden \\(recommended\\)\" /fo LIST /v 2>&1)"
+    ]
+  }
+}

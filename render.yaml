@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: mirror-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production

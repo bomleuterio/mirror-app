@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/temp/**)",
+      "PowerShell(schtasks /run /tn \"Run the Node server hidden \\(recommended\\)\" 2>&1)",
+      "Bash(schtasks /end /tn \"Run the Node server hidden \\(recommended\\)\")",
+      "Bash(Start-Sleep -Seconds 2)",
+      "Bash(schtasks /run /tn \"Run the Node server hidden \\(recommended\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Administrator\\Documents\\trae_projects\\mirror App\\mirror-app"
+    ]
+  }
+}

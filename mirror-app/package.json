@@ -1,0 +1,45 @@
+{
+  "name": "mirror-app",
+  "version": "1.0.0",
+  "description": "An Electron app to mirror PowerPoint and PDF files.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win portable",
+    "dist:dir": "electron-builder --win dir",
+    "portable:zip": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$zip = 'dist\\\\PPT-Mirror-App-portable.zip'; if (Test-Path $zip) { Remove-Item -Force $zip }; $exePath = (Resolve-Path 'dist\\\\win-unpacked\\\\PPT Mirror App.exe').Path; Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath } | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Compress-Archive -Path 'dist\\\\win-unpacked\\\\*' -DestinationPath $zip -Force\""
+  },
+  "productName": "PPT Mirror App",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mupdf": "^1.27.0",
+    "nodejs-pptx": "^1.2.5",
+    "pdf-lib": "^1.17.1",
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "electron": "^42.1.0",
+    "electron-builder": "^26.0.12",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.pptmirror.app",
+    "productName": "PPT Mirror App",
+    "files": [
+      "**/*",
+      "!dist{,/**}",
+      "!electron{,/**}",
+      "!electron.zip"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
+  }
+}

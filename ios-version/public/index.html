@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mirror Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;background:#f0f4ff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px;color:#1a1a2e}
+    h1{font-size:1.8rem;font-weight:700;margin-bottom:6px;color:#2d3adf;display:flex;align-items:center;gap:10px}
+    .logo{width:26px;height:26px;border-radius:8px;background:#2d3adf;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+    p.sub{color:#666;margin-bottom:30px;font-size:.95rem;text-align:center}
+    .card{background:#fff;border-radius:16px;padding:30px;width:100%;max-width:700px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+    .tabs{display:flex;gap:8px;margin-bottom:24px}
+    .tab{flex:1;padding:10px;border:2px solid #e0e0ff;border-radius:10px;background:#f7f8ff;cursor:pointer;font-size:.95rem;font-weight:600;color:#666;text-align:center;transition:all .2s;user-select:none}
+    .tab.active{border-color:#2d3adf;background:#2d3adf;color:#fff}
+    .panel{display:none}.panel.active{display:block}
+    .drop-label{display:block;border:2.5px dashed #b0b8ff;border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#f7f8ff}
+    .drop-label:hover{border-color:#2d3adf;background:#eef0ff}
+    .drop-label .icon{font-size:2.5rem;margin-bottom:10px}
+    .drop-label p{color:#555;font-size:.95rem}
+    .drop-label span{color:#2d3adf;font-weight:600}
+    .drop-label input[type=file]{display:none}
+    .field{margin-top:14px}
+    .field label{display:block;font-size:.9rem;font-weight:700;color:#555;margin-bottom:6px}
+    .field input[type=url]{width:100%;padding:12px 12px;border:2px solid #e0e0ff;border-radius:10px;background:#f7f8ff;font-size:.95rem}
+    .filename{margin-top:14px;font-size:.9rem;color:#444;background:#f0f4ff;padding:8px 14px;border-radius:8px;display:none}
+    .btn{margin-top:16px;width:100%;padding:14px;background:#2d3adf;color:#fff;font-size:1rem;font-weight:600;border:none;border-radius:10px;cursor:pointer;display:none}
+    .btn:hover{background:#1e2ab0}
+    .btn:disabled{background:#a0a8e8;cursor:not-allowed}
+    .progress-wrap{margin-top:14px;display:none}
+    .prog-bg{background:#e8eaff;border-radius:999px;height:10px;overflow:hidden}
+    .prog-bar{height:100%;background:#2d3adf;border-radius:999px;width:0%;transition:width .3s}
+    .prog-label{font-size:.82rem;color:#666;margin-top:6px;text-align:center}
+    .previews{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+    .prev-item{border-radius:8px;overflow:hidden;border:1px solid #dde0ff;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .prev-item canvas{width:100%;display:block}
+    .prev-lbl{font-size:.75rem;text-align:center;padding:4px;color:#666;background:#f7f8ff}
+    .dl-btn{margin-top:16px;width:100%;padding:14px;background:#16a34a;color:#fff;font-size:1rem;font-weight:600;border:none;border-radius:10px;cursor:pointer;display:none}
+    .dl-btn:hover{background:#15803d}
+    .dl-btn:disabled{background:#86c49a}
+    .err{color:#dc2626;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:.88rem;margin-top:10px;display:none}
+  </style>
+</head>
+<body>
+  <h1><span class="logo">↔</span>Mirror Tool</h1>
+  <p class="sub">Horizontally flip PDF or PPTX for teleprompter use</p>
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" id="tabPdf">PDF</div>
+      <div class="tab" id="tabPptx">PPTX</div>
+    </div>
+
+    <div class="panel active" id="panelPdf">
+      <label class="drop-label" id="pdfLabel">
+        <div class="icon">📂</div>
+        <p>Drag & drop your <strong>PDF</strong> here, or <span>browse to upload</span></p>
+        <input type="file" id="pdfInput" accept=".pdf"/>
+      </label>
+      <div class="filename" id="pdfName"></div>
+      <div class="err" id="pdfErr"></div>
+      <button class="btn" id="pdfBtn">Mirror & Preview</button>
+      <div class="progress-wrap" id="pdfProg">
+        <div class="prog-bg"><div class="prog-bar" id="pdfBar"></div></div>
+        <div class="prog-label" id="pdfLbl"></div>
+      </div>
+      <div class="previews" id="pdfPrevs"></div>
+      <button class="dl-btn" id="pdfDl">Download Mirrored PDF</button>
+    </div>
+
+    <div class="panel" id="panelPptx">
+      <div class="field" style="display:none">
+        <label for="apiBase">Server URL</label>
+        <input id="apiBase" type="url" inputmode="url" placeholder="https://your-backend.example.com"/>
+      </div>
+      <label class="drop-label" id="pptxLabel" style="margin-top:14px;">
+        <div class="icon">📂</div>
+        <p>Drag & drop your <strong>PPTX</strong> here, or <span>browse to upload</span></p>
+        <input type="file" id="pptxInput" accept=".pptx"/>
+      </label>
+      <div class="filename" id="pptxName"></div>
+      <div class="err" id="pptxErr"></div>
+      <button class="btn" id="pptxBtn">Mirror & Download</button>
+      <div class="progress-wrap" id="pptxProg">
+        <div class="prog-bg"><div class="prog-bar" id="pptxBar"></div></div>
+        <div class="prog-label" id="pptxLbl"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    let pdfFile = null;
+    let pdfBlob = null;
+    let pptxFile = null;
+
+    const $ = (id) => document.getElementById(id);
+    const DEFAULT_API_BASE = window.location.protocol === 'https:' ? 'https://api.blvd365.com' : 'http://127.0.0.1:3000';
+    const apiBaseEl = $('apiBase');
+    const params = new URLSearchParams(window.location.search);
+    const apiFromQuery = (params.get('api') || '').trim();
+    const apiFromStorage = (localStorage.getItem('mirrorApiBase') || '').trim();
+    if (apiBaseEl && !apiBaseEl.value) {
+      const candidate = apiFromQuery || apiFromStorage || DEFAULT_API_BASE;
+      const normalized = normalizeApiBase(candidate);
+      const isHttpsPage = window.location.protocol === 'https:';
+      const hostOnly = normalized.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+      const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostOnly);
+      if (isHttpsPage && (normalized.startsWith('http://') || isIp)) {
+        apiBaseEl.value = 'https://api.blvd365.com';
+      } else {
+        apiBaseEl.value = normalized || candidate;
+      }
+    }
+
+    function switchTab(t) {
+      $('tabPdf').classList.toggle('active', t === 'pdf');
+      $('tabPptx').classList.toggle('active', t === 'pptx');
+      $('panelPdf').classList.toggle('active', t === 'pdf');
+      $('panelPptx').classList.toggle('active', t === 'pptx');
+    }
+
+    $('tabPdf').addEventListener('click', () => switchTab('pdf'));
+    if ($('tabPptx') && $('tabPptx').style.display !== 'none') {
+      $('tabPptx').addEventListener('click', () => switchTab('pptx'));
+    }
+
+    function showErr(id, msg) {
+      $(id).textContent = msg;
+      $(id).style.display = 'block';
+    }
+
+    function clearErr(id) {
+      $(id).textContent = '';
+      $(id).style.display = 'none';
+    }
+
+    function setP(barId, lblId, pct, msg) {
+      $(barId).style.width = pct + '%';
+      $(lblId).textContent = msg;
+    }
+
+    function flipCanvas(src) {
+      const c = document.createElement('canvas');
+      c.width = src.width;
+      c.height = src.height;
+      const ctx = c.getContext('2d');
+      ctx.translate(src.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(src, 0, 0);
+      return c;
+    }
+
+    function addPreview(containerId, canvas, label) {
+      const item = document.createElement('div');
+      item.className = 'prev-item';
+      const t = document.createElement('canvas');
+      t.width = 150;
+      t.height = Math.max(1, Math.round(canvas.height * 150 / canvas.width));
+      t.getContext('2d').drawImage(canvas, 0, 0, t.width, t.height);
+      const l = document.createElement('div');
+      l.className = 'prev-lbl';
+      l.textContent = label;
+      item.appendChild(t);
+      item.appendChild(l);
+      $(containerId).appendChild(item);
+    }
+
+    function normalizeApiBase(value) {
+      const v = String(value || '').trim();
+      if (!v) return '';
+      const hasProto = /^https?:\/\//i.test(v);
+      const defaultProto = window.location.protocol === 'https:' ? 'https' : 'http';
+      const withProto = hasProto ? v : `${defaultProto}://${v}`;
+      const trimmed = withProto.replace(/\/+$/, '');
+      if (window.location.protocol === 'https:' && trimmed.startsWith('http://')) {
+        const rest = trimmed.slice('http://'.length);
+        const host = rest.split('/')[0].split(':')[0];
+        const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+        if (!isIp) return `https://${rest}`;
+      }
+      return trimmed;
+    }
+
+    if (apiBaseEl) {
+      apiBaseEl.addEventListener('change', () => {
+        const normalized = normalizeApiBase(apiBaseEl.value);
+        localStorage.setItem('mirrorApiBase', normalized);
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function setupDrop(labelId, onFile) {
+      const el = $(labelId);
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        el.style.borderColor = '#2d3adf';
+      });
+      el.addEventListener('dragleave', () => {
+        el.style.borderColor = '';
+      });
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.style.borderColor = '';
+        const f = e.dataTransfer.files && e.dataTransfer.files[0] ? e.dataTransfer.files[0] : null;
+        if (f) onFile(f);
+      });
+    }
+
+    setupDrop('pdfLabel', onPdfFile);
+    if ($('pptxLabel') && $('pptxLabel').closest('#panelPptx') && $('pptxLabel').closest('#panelPptx').style.display !== 'none') {
+      setupDrop('pptxLabel', onPptxFile);
+    }
+
+    $('pdfInput').addEventListener('change', (e) => onPdfFile(e.target.files && e.target.files[0] ? e.target.files[0] : null));
+    if ($('pptxInput') && $('pptxInput').closest('#panelPptx') && $('pptxInput').closest('#panelPptx').style.display !== 'none') {
+      $('pptxInput').addEventListener('change', (e) => onPptxFile(e.target.files && e.target.files[0] ? e.target.files[0] : null));
+    }
+
+    function onPdfFile(f) {
+      if (!f || !f.name.toLowerCase().endsWith('.pdf')) {
+        showErr('pdfErr', 'Please select a PDF file.');
+        return;
+      }
+      clearErr('pdfErr');
+      pdfFile = f;
+      pdfBlob = null;
+      $('pdfName').textContent = '📎 ' + f.name;
+      $('pdfName').style.display = 'block';
+      $('pdfBtn').style.display = 'block';
+      $('pdfDl').style.display = 'none';
+      $('pdfPrevs').innerHTML = '';
+      $('pdfProg').style.display = 'none';
+      setP('pdfBar', 'pdfLbl', 0, '');
+    }
+
+    function onPptxFile(f) {
+      if (!f || !f.name.toLowerCase().endsWith('.pptx')) {
+        showErr('pptxErr', 'Please select a PPTX file.');
+        return;
+      }
+      clearErr('pptxErr');
+      pptxFile = f;
+      $('pptxName').textContent = '📎 ' + f.name;
+      $('pptxName').style.display = 'block';
+      $('pptxBtn').style.display = 'block';
+      $('pptxProg').style.display = 'none';
+      setP('pptxBar', 'pptxLbl', 0, '');
+    }
+
+    async function mirrorPdfWithPdfLib(file) {
+      if (!window.PDFLib || !window.PDFLib.PDFDocument) {
+        throw new Error('PDF engine failed to load.');
+      }
+      const { PDFDocument } = window.PDFLib;
+      const inputBytes = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(inputBytes);
+      const mirroredPdf = await PDFDocument.create();
+      const pages = pdfDoc.getPages();
+      const pageIndices = pages.map((_, idx) => idx);
+      const embeddedPages = await mirroredPdf.embedPdf(pdfDoc, pageIndices);
+      for (let i = 0; i < embeddedPages.length; i++) {
+        const embedded = embeddedPages[i];
+        const sourcePage = pages[i];
+        const width = sourcePage.getWidth();
+        const height = sourcePage.getHeight();
+        const newPage = mirroredPdf.addPage([width, height]);
+        newPage.drawPage(embedded, { x: width, y: 0, xScale: -1, yScale: 1 });
+      }
+      const bytes = await mirroredPdf.save();
+      return new Blob([bytes], { type: 'application/pdf' });
+    }
+
+    $('pdfBtn').addEventListener('click', async () => {
+      if (!pdfFile) return;
+      clearErr('pdfErr');
+      $('pdfBtn').disabled = true;
+      $('pdfProg').style.display = 'block';
+      $('pdfPrevs').innerHTML = '';
+      $('pdfDl').style.display = 'none';
+      pdfBlob = null;
+      try {
+        setP('pdfBar', 'pdfLbl', 5, 'Loading PDF...');
+        const buf = await pdfFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+        const tot = pdf.numPages;
+        for (let i = 1; i <= tot; i++) {
+          setP('pdfBar', 'pdfLbl', Math.round((i / tot) * 75), `Rendering page ${i}/${tot}...`);
+          const page = await pdf.getPage(i);
+          const vp = page.getViewport({ scale: 2 });
+          const orig = document.createElement('canvas');
+          orig.width = vp.width;
+          orig.height = vp.height;
+          await page.render({ canvasContext: orig.getContext('2d'), viewport: vp }).promise;
+          const fl = flipCanvas(orig);
+          addPreview('pdfPrevs', fl, 'Page ' + i);
+        }
+        setP('pdfBar', 'pdfLbl', 85, 'Building mirrored PDF...');
+        pdfBlob = await mirrorPdfWithPdfLib(pdfFile);
+        setP('pdfBar', 'pdfLbl', 100, '✅ Mirrored PDF ready.');
+        $('pdfDl').style.display = 'block';
+      } catch (e) {
+        showErr('pdfErr', 'Error: ' + (e && e.message ? e.message : 'Failed.'));
+        $('pdfProg').style.display = 'none';
+      } finally {
+        $('pdfBtn').disabled = false;
+      }
+    });
+
+    $('pdfDl').addEventListener('click', () => {
+      if (!pdfBlob || !pdfFile) return;
+      const name = pdfFile.name.replace(/\.pdf$/i, '');
+      downloadBlob(pdfBlob, `mirrored_${name}.pdf`);
+    });
+
+    $('pptxBtn').addEventListener('click', async () => {
+      if (!pptxFile) return;
+      clearErr('pptxErr');
+      const apiBase = normalizeApiBase($('apiBase').value);
+      if (!apiBase) {
+        showErr('pptxErr', 'Enter the Server URL for PPTX mirroring.');
+        return;
+      }
+      if (window.location.protocol === 'https:' && apiBase.startsWith('http://')) {
+        showErr('pptxErr', 'This page is HTTPS but the server URL is HTTP. Use an HTTPS server URL.');
+        return;
+      }
+      $('pptxBtn').disabled = true;
+      $('pptxProg').style.display = 'block';
+      setP('pptxBar', 'pptxLbl', 10, 'Uploading PPTX...');
+      try {
+        const form = new FormData();
+        form.append('mode', 'pptx');
+        form.append('file', pptxFile, pptxFile.name);
+        const resp = await fetch(`${apiBase}/api/mirror`, { method: 'POST', body: form });
+        if (!resp.ok) {
+          let msg = 'Failed.';
+          try {
+            const data = await resp.json();
+            if (data && data.error) msg = data.error;
+          } catch {}
+          throw new Error(msg);
+        }
+        setP('pptxBar', 'pptxLbl', 70, 'Downloading mirrored PPTX...');
+        const blob = await resp.blob();
+        const cd = resp.headers.get('content-disposition') || '';
+        const match = cd.match(/filename=\"?([^\";]+)\"?/i);
+        const outName = match && match[1] ? match[1] : ('mirrored_' + (pptxFile.name || 'output.pptx'));
+        setP('pptxBar', 'pptxLbl', 95, 'Saving file...');
+        downloadBlob(blob, outName);
+        setP('pptxBar', 'pptxLbl', 100, '✅ Done.');
+      } catch (e) {
+        const msg = e && e.message ? e.message : 'Failed.';
+        if (String(msg).toLowerCase().includes('failed to fetch')) {
+          showErr(
+            'pptxErr',
+            `Error: Failed to reach the server.\n\n1) Open this link in a new tab: ${apiBase}/health\n2) If it does not load, your Cloudflare Tunnel / DNS is not set yet.\n3) If it loads but upload fails, it is likely a CORS issue (server must allow https://blvd365.com).`
+          );
+        } else {
+          showErr('pptxErr', 'Error: ' + msg);
+        }
+        $('pptxProg').style.display = 'none';
+      } finally {
+        $('pptxBtn').disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
