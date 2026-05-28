@@ -39,19 +39,6 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
-// Basic auth — only active when APP_PASSWORD is set via environment variable
-const APP_PASSWORD = process.env.APP_PASSWORD || '';
-if (APP_PASSWORD) {
-  app.use((req, res, next) => {
-    const auth = req.headers.authorization || '';
-    const b64 = auth.startsWith('Basic ') ? auth.slice(6) : '';
-    const [, pass] = Buffer.from(b64, 'base64').toString().split(':');
-    if (pass === APP_PASSWORD) return next();
-    res.setHeader('WWW-Authenticate', 'Basic realm="Mirror Tool"');
-    res.status(401).send('Unauthorized');
-  });
-}
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 const upload = multer({
