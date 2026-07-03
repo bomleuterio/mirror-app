@@ -1,6 +1,6 @@
 {
-  "name": "Mirror Tool",
-  "short_name": "Mirror",
+  "name": "PPT Mirror.ai",
+  "short_name": "PPT Mirror",
   "description": "Horizontally flip PDF and PPTX files for teleprompter use",
   "start_url": "/",
   "display": "standalone",
