@@ -1,7 +1,7 @@
 const nacl = require('tweetnacl');
 const config = require('./config');
 
-const REQUEST_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 function verifyAndParseToken(token, signature) {
   try {
@@ -48,6 +48,7 @@ async function validateLicense(email, licenseKey) {
 
     return { ok: true, planExpiresAt: payload.plan_expires_at };
   } catch (e) {
+    console.error('License server request failed:', e && e.cause ? e.cause : e);
     return { ok: false, networkError: true, error: 'network', message: 'Could not reach the license server.' };
   } finally {
     clearTimeout(timeout);
