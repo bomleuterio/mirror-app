@@ -28,16 +28,22 @@ async function validateLicense(email, licenseKey) {
       signal: controller.signal,
     });
 
+    const rawBody = await res.text();
     let data = null;
     try {
-      data = await res.json();
+      data = JSON.parse(rawBody);
     } catch {}
+
+    if (!data) {
+      console.error(`License server returned a non-JSON response (status ${res.status}):`, rawBody.slice(0, 500));
+      return { ok: false, error: 'bad_response', message: 'Received an unexpected response from the license server.' };
+    }
 
     if (!res.ok) {
       return {
         ok: false,
-        error: (data && data.code) || 'error',
-        message: (data && data.message) || 'Could not verify your subscription.',
+        error: data.code || 'error',
+        message: data.message || 'Could not verify your subscription.',
       };
     }
 

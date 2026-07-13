@@ -60,12 +60,17 @@ async function callApi(routePath, body) {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
+    const rawBody = await res.text();
     let data = null;
     try {
-      data = await res.json();
+      data = JSON.parse(rawBody);
     } catch {}
+    if (!data) {
+      console.error(`License server returned a non-JSON response (status ${res.status}) from ${routePath}:`, rawBody.slice(0, 500));
+    }
     return { networkError: false, ok: res.ok, status: res.status, data };
   } catch (e) {
+    console.error(`License server request to ${routePath} failed:`, e && e.cause ? e.cause : e);
     return { networkError: true, ok: false, status: 0, data: null };
   } finally {
     clearTimeout(timeout);
@@ -96,6 +101,9 @@ async function activateLicense({ email, licenseKey }) {
   }
   if (!result.ok) {
     return errorFromResponse(result, 'Activation failed.');
+  }
+  if (!result.data) {
+    return { ok: false, needsLogin: true, error: 'bad_response', message: 'Received an unexpected response from the license server.' };
   }
 
   const payload = verifyAndParseToken(result.data.token, result.data.signature);
@@ -141,6 +149,9 @@ async function validateLicense() {
       clearCache();
     }
     return errorFromResponse(result, 'Could not verify your subscription.');
+  }
+  if (!result.data) {
+    return { ok: false, needsLogin: true, error: 'bad_response', message: 'Received an unexpected response from the license server.' };
   }
 
   const payload = verifyAndParseToken(result.data.token, result.data.signature);
