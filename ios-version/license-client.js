@@ -61,4 +61,30 @@ async function validateLicense(email, licenseKey) {
   }
 }
 
-module.exports = { validateLicense };
+// Used for the initial login: the browser calls WordPress's /validate
+// directly (avoiding server-to-server bot-protection challenges some hosts
+// apply) and relays the signed result here for local verification — no
+// network call needed on our side.
+function verifyClientSubmittedToken(email, licenseKey, token, signature) {
+  if (!email || !licenseKey || !token || !signature) {
+    return { ok: false, error: 'bad_request', message: 'Missing required fields.' };
+  }
+
+  const payload = verifyAndParseToken(token, signature);
+  if (!payload) {
+    return { ok: false, error: 'bad_signature', message: 'Received an invalid response from the license server.' };
+  }
+  if (String(payload.email).toLowerCase() !== email.trim().toLowerCase()) {
+    return { ok: false, error: 'bad_signature', message: 'License response does not match the submitted email.' };
+  }
+  if (payload.status !== 'active') {
+    return { ok: false, error: 'inactive_subscription', message: 'This access has expired or is not active.' };
+  }
+  if (payload.plan_expires_at && new Date(`${payload.plan_expires_at} UTC`).getTime() <= Date.now()) {
+    return { ok: false, error: 'inactive_subscription', message: 'This access has expired or is not active.' };
+  }
+
+  return { ok: true, planExpiresAt: payload.plan_expires_at };
+}
+
+module.exports = { validateLicense, verifyClientSubmittedToken };

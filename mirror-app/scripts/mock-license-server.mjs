@@ -69,6 +69,16 @@ async function readJsonBody(req) {
 }
 
 const server = createServer(async (req, res) => {
+  // Mirrors the real WordPress plugin's CORS headers so local testing
+  // matches production behavior for the browser-direct login flow.
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
+
   let body;
   try {
     body = await readJsonBody(req);

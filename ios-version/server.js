@@ -8,7 +8,7 @@ const cookieParser = require('cookie-parser');
 const { mirrorPdf } = require(path.join(__dirname, '..', 'mirror-app', 'pdf-mirror'));
 const { mirrorPptx } = require(path.join(__dirname, '..', 'mirror-app', 'ppt-mirror'));
 const config = require('./config');
-const { validateLicense } = require('./license-client');
+const { validateLicense, verifyClientSubmittedToken } = require('./license-client');
 
 if (process.env.NODE_ENV === 'production' && config.COOKIE_SECRET === 'dev-insecure-cookie-secret-change-me') {
   console.warn('WARNING: COOKIE_SECRET is not set — using the insecure dev default in production.');
@@ -79,20 +79,30 @@ function denyAccess(req, res, message) {
   return res.redirect(`/login?redirect=${encodeURIComponent(req.originalUrl)}`);
 }
 
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+app.get('/login', async (req, res) => {
+  const html = await fs.readFile(path.join(__dirname, 'public', 'login.html'), 'utf8');
+  const withConfig = html.replace(
+    '</head>',
+    `<script>window.PPTMIRROR_API_BASE_URL = ${JSON.stringify(config.API_BASE_URL)};</script></head>`
+  );
+  res.type('html').send(withConfig);
 });
 
+// The browser validates directly against WordPress (see login.html) to avoid
+// datacenter-IP bot-protection challenges some hosts apply to server-to-server
+// calls; this just verifies the signed result it relays back, locally.
 app.post('/api/login', async (req, res) => {
   const email = String((req.body && req.body.email) || '').trim();
   const licenseKey = String((req.body && req.body.licenseKey) || '').trim();
+  const token = String((req.body && req.body.token) || '').trim();
+  const signature = String((req.body && req.body.signature) || '').trim();
   if (!email || !licenseKey) {
     return res.status(400).json({ error: 'Enter your email and license key.' });
   }
 
-  const result = await validateLicense(email, licenseKey);
+  const result = verifyClientSubmittedToken(email, licenseKey, token, signature);
   if (!result.ok) {
-    return res.status(result.networkError ? 502 : 401).json({ error: result.message });
+    return res.status(401).json({ error: result.message });
   }
 
   res.cookie(SESSION_COOKIE, { email, licenseKey, sessionCreatedAt: Date.now() }, cookieOptions(req));
@@ -120,10 +130,11 @@ app.use(async (req, res, next) => {
     res.cookie(SESSION_COOKIE, { ...session, sessionCreatedAt: Date.now() }, cookieOptions(req));
     return next();
   }
-  if (result.networkError) {
-    // Don't lock out paying users over a transient WordPress outage, but leave
-    // sessionCreatedAt alone so the next request retries instead of trusting
-    // this session indefinitely.
+  if (result.networkError || result.error === 'bad_response') {
+    // Don't lock out paying users over a transient WordPress outage (or a
+    // hosting-level bot challenge intercepting our server's own request —
+    // see license-client.js), but leave sessionCreatedAt alone so the next
+    // request retries instead of trusting this session indefinitely.
     return next();
   }
   res.clearCookie(SESSION_COOKIE);

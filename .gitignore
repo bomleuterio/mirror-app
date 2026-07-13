@@ -1,5 +1,6 @@
 node_modules/
 mirror-app/dist/
+mirror-app/dist-packager/
 mirror-app/electron/
 *.log
 .DS_Store

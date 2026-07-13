@@ -294,6 +294,19 @@ function pptmirror_run_daily_check() {
 
 // ---- REST API ---------------------------------------------------------------
 
+// The web app's browser calls these routes directly (not from its own
+// server) specifically to avoid datacenter-IP bot-protection challenges some
+// hosts apply to server-to-server traffic. No cookies/credentials are
+// involved in these requests, so a wildcard origin is safe here.
+add_filter('rest_pre_serve_request', function ($served, $result, $request) {
+    if (strpos($request->get_route(), '/pptmirror/v1/') === 0) {
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type');
+    }
+    return $served;
+}, 10, 3);
+
 add_action('rest_api_init', function () {
     register_rest_route('pptmirror/v1', '/activate', [
         'methods'             => 'POST',

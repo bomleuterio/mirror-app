@@ -52,10 +52,26 @@
       }
       $('btn').disabled = true;
       try {
+        // Validate directly against WordPress from the browser (not our own
+        // server) — this avoids datacenter-IP bot-protection challenges some
+        // hosts apply to server-to-server calls. Our server never sees this
+        // request; it only verifies the signed result relayed below.
+        const wpRes = await fetch(`${window.PPTMIRROR_API_BASE_URL}/validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, license_key: licenseKey }),
+        });
+        const wpData = await wpRes.json().catch(() => ({}));
+        if (!wpRes.ok) {
+          $('err').textContent = wpData.message || 'Sign in failed.';
+          $('err').style.display = 'block';
+          return;
+        }
+
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, licenseKey }),
+          body: JSON.stringify({ email, licenseKey, token: wpData.token, signature: wpData.signature }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok) {
