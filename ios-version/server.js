@@ -3,11 +3,21 @@ const os = require('os');
 const fs = require('fs').promises;
 const express = require('express');
 const multer = require('multer');
+const cookieParser = require('cookie-parser');
 
 const { mirrorPdf } = require(path.join(__dirname, '..', 'mirror-app', 'pdf-mirror'));
 const { mirrorPptx } = require(path.join(__dirname, '..', 'mirror-app', 'ppt-mirror'));
+const config = require('./config');
+const { validateLicense } = require('./license-client');
+
+if (process.env.NODE_ENV === 'production' && config.COOKIE_SECRET === 'dev-insecure-cookie-secret-change-me') {
+  console.warn('WARNING: COOKIE_SECRET is not set — using the insecure dev default in production.');
+}
 
 const app = express();
+app.set('trust proxy', 1); // Render terminates TLS at its proxy; needed for req.secure to reflect the original HTTPS request.
+app.use(express.json());
+app.use(cookieParser(config.COOKIE_SECRET));
 
 const allowedOrigins = String(process.env.CORS_ORIGINS || '')
   .split(',')
@@ -39,18 +49,86 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
-// Basic auth — only active when APP_PASSWORD is set via environment variable
-const APP_PASSWORD = process.env.APP_PASSWORD || '';
-if (APP_PASSWORD) {
-  app.use((req, res, next) => {
-    const auth = req.headers.authorization || '';
-    const b64 = auth.startsWith('Basic ') ? auth.slice(6) : '';
-    const [, pass] = Buffer.from(b64, 'base64').toString().split(':');
-    if (pass === APP_PASSWORD) return next();
-    res.setHeader('WWW-Authenticate', 'Basic realm="Mirror Tool"');
-    res.status(401).send('Unauthorized');
-  });
+// Subscription gate — everything below this point requires a valid session.
+const SESSION_COOKIE = 'pptmirror_session';
+const REVALIDATE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// secure must reflect the actual connection (req.secure), not NODE_ENV — a
+// static `NODE_ENV === 'production'` check marks the cookie Secure even when
+// served over plain http:// (e.g. testing locally with NODE_ENV=production
+// set), and browsers then silently refuse to ever send it back, breaking
+// login with no visible error at the cookie layer.
+function cookieOptions(req) {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.secure,
+    signed: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  };
 }
+
+function wantsJson(req) {
+  return req.path.startsWith('/api/') || (req.headers.accept || '').includes('application/json');
+}
+
+function denyAccess(req, res, message) {
+  if (wantsJson(req)) {
+    return res.status(401).json({ error: message || 'Sign in with your subscription to continue.' });
+  }
+  return res.redirect(`/login?redirect=${encodeURIComponent(req.originalUrl)}`);
+}
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.post('/api/login', async (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim();
+  const licenseKey = String((req.body && req.body.licenseKey) || '').trim();
+  if (!email || !licenseKey) {
+    return res.status(400).json({ error: 'Enter your email and license key.' });
+  }
+
+  const result = await validateLicense(email, licenseKey);
+  if (!result.ok) {
+    return res.status(result.networkError ? 502 : 401).json({ error: result.message });
+  }
+
+  res.cookie(SESSION_COOKIE, { email, licenseKey, sessionCreatedAt: Date.now() }, cookieOptions(req));
+  res.json({ ok: true });
+});
+
+app.post('/api/logout', (req, res) => {
+  res.clearCookie(SESSION_COOKIE);
+  res.json({ ok: true });
+});
+
+app.use(async (req, res, next) => {
+  const session = req.signedCookies && req.signedCookies[SESSION_COOKIE];
+  if (!session || !session.email || !session.licenseKey) {
+    return denyAccess(req, res);
+  }
+
+  const age = Date.now() - (session.sessionCreatedAt || 0);
+  if (age < REVALIDATE_INTERVAL_MS) {
+    return next();
+  }
+
+  const result = await validateLicense(session.email, session.licenseKey);
+  if (result.ok) {
+    res.cookie(SESSION_COOKIE, { ...session, sessionCreatedAt: Date.now() }, cookieOptions(req));
+    return next();
+  }
+  if (result.networkError) {
+    // Don't lock out paying users over a transient WordPress outage, but leave
+    // sessionCreatedAt alone so the next request retries instead of trusting
+    // this session indefinitely.
+    return next();
+  }
+  res.clearCookie(SESSION_COOKIE);
+  return denyAccess(req, res, result.message);
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 

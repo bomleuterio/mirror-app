@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign in — PPT Mirror.ai</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;background:#f0f4ff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:#1a1a2e}
+    h1{font-size:1.8rem;font-weight:700;margin-bottom:6px;color:#2d3adf;display:flex;align-items:center;gap:10px}
+    .logo{width:26px;height:26px;border-radius:8px;background:#2d3adf;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+    p.sub{color:#666;margin-bottom:30px;font-size:.95rem;text-align:center}
+    .card{background:#fff;border-radius:16px;padding:30px;width:100%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+    .field{margin-top:14px}
+    .field:first-child{margin-top:0}
+    .field label{display:block;font-size:.9rem;font-weight:700;color:#555;margin-bottom:6px}
+    .field input{width:100%;padding:12px 12px;border:2px solid #e0e0ff;border-radius:10px;background:#f7f8ff;font-size:.95rem}
+    .err{color:#dc2626;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:.88rem;margin-top:14px;display:none;white-space:pre-wrap}
+    .btn{margin-top:16px;width:100%;padding:14px;background:#2d3adf;color:#fff;font-size:1rem;font-weight:600;border:none;border-radius:10px;cursor:pointer}
+    .btn:hover{background:#1e2ab0}
+    .btn:disabled{background:#a0a8e8;cursor:not-allowed}
+  </style>
+</head>
+<body>
+  <h1><span class="logo">&harr;</span>PPT Mirror.ai</h1>
+  <p class="sub">Sign in with your subscription to continue.</p>
+  <div class="card">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label for="licenseKey">License key</label>
+      <input id="licenseKey" type="text" placeholder="PPTM-XXXX-XXXX-XXXX-XXXX" autocomplete="off"/>
+    </div>
+    <div class="err" id="err"></div>
+    <button class="btn" id="btn">Sign in</button>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+    const redirectTo = params.get('redirect') || '/';
+
+    $('btn').addEventListener('click', async () => {
+      const email = $('email').value.trim();
+      const licenseKey = $('licenseKey').value.trim();
+      $('err').style.display = 'none';
+      if (!email || !licenseKey) {
+        $('err').textContent = 'Enter your email and license key.';
+        $('err').style.display = 'block';
+        return;
+      }
+      $('btn').disabled = true;
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, licenseKey }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          location.href = redirectTo;
+          return;
+        }
+        $('err').textContent = data.error || 'Sign in failed.';
+        $('err').style.display = 'block';
+      } catch (e) {
+        $('err').textContent = 'Could not reach the server. Check your connection.';
+        $('err').style.display = 'block';
+      } finally {
+        $('btn').disabled = false;
+      }
+    });
+
+    $('licenseKey').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('btn').click();
+    });
+  </script>
+</body>
+</html>

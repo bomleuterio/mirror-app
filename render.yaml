@@ -8,3 +8,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PPTMIRROR_API_BASE_URL
+        sync: false
+      - key: PPTMIRROR_LICENSE_PUBLIC_KEY
+        sync: false
+      - key: COOKIE_SECRET
+        sync: false

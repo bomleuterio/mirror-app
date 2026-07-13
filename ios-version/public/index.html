@@ -52,6 +52,7 @@
   </style>
 </head>
 <body>
+  <a href="#" id="logoutLink" style="position:fixed;top:16px;right:20px;font-size:.85rem;color:#666;text-decoration:underline;cursor:pointer;z-index:10">Log out</a>
   <h1><span class="logo">↔</span>PPT Mirror.ai</h1>
   <p class="sub">Horizontally flip PDF or PPTX for teleprompter use</p>
   <div class="card">
@@ -78,10 +79,6 @@
     </div>
 
     <div class="panel" id="panelPptx">
-      <div class="field" style="display:none">
-        <label for="apiBase">Server URL</label>
-        <input id="apiBase" type="url" inputmode="url" placeholder="https://your-backend.example.com"/>
-      </div>
       <label class="drop-label" id="pptxLabel" style="margin-top:14px;">
         <div class="icon">📂</div>
         <p>Drag & drop your <strong>PPTX</strong> here, or <span>browse to upload</span></p>
@@ -105,24 +102,12 @@
     let pptxFile = null;
 
     const $ = (id) => document.getElementById(id);
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const DEFAULT_API_BASE = isLocal ? 'http://127.0.0.1:3000' : window.location.origin;
-    const apiBaseEl = $('apiBase');
-    const params = new URLSearchParams(window.location.search);
-    const apiFromQuery = (params.get('api') || '').trim();
-    const apiFromStorage = (localStorage.getItem('mirrorApiBase') || '').trim();
-    if (apiBaseEl && !apiBaseEl.value) {
-      const candidate = apiFromQuery || apiFromStorage || DEFAULT_API_BASE;
-      const normalized = normalizeApiBase(candidate);
-      const isHttpsPage = window.location.protocol === 'https:';
-      const hostOnly = normalized.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-      const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostOnly);
-      if (isHttpsPage && (normalized.startsWith('http://') || isIp)) {
-        apiBaseEl.value = DEFAULT_API_BASE;
-      } else {
-        apiBaseEl.value = normalized || candidate;
-      }
-    }
+
+    $('logoutLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+      location.href = '/login';
+    });
 
     function switchTab(t) {
       $('tabPdf').classList.toggle('active', t === 'pdf');
@@ -175,29 +160,6 @@
       item.appendChild(t);
       item.appendChild(l);
       $(containerId).appendChild(item);
-    }
-
-    function normalizeApiBase(value) {
-      const v = String(value || '').trim();
-      if (!v) return '';
-      const hasProto = /^https?:\/\//i.test(v);
-      const defaultProto = window.location.protocol === 'https:' ? 'https' : 'http';
-      const withProto = hasProto ? v : `${defaultProto}://${v}`;
-      const trimmed = withProto.replace(/\/+$/, '');
-      if (window.location.protocol === 'https:' && trimmed.startsWith('http://')) {
-        const rest = trimmed.slice('http://'.length);
-        const host = rest.split('/')[0].split(':')[0];
-        const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
-        if (!isIp) return `https://${rest}`;
-      }
-      return trimmed;
-    }
-
-    if (apiBaseEl) {
-      apiBaseEl.addEventListener('change', () => {
-        const normalized = normalizeApiBase(apiBaseEl.value);
-        localStorage.setItem('mirrorApiBase', normalized);
-      });
     }
 
     function downloadBlob(blob, filename) {
@@ -337,15 +299,6 @@
     $('pptxBtn').addEventListener('click', async () => {
       if (!pptxFile) return;
       clearErr('pptxErr');
-      const apiBase = normalizeApiBase($('apiBase').value);
-      if (!apiBase) {
-        showErr('pptxErr', 'Enter the Server URL for PPTX mirroring.');
-        return;
-      }
-      if (window.location.protocol === 'https:' && apiBase.startsWith('http://')) {
-        showErr('pptxErr', 'This page is HTTPS but the server URL is HTTP. Use an HTTPS server URL.');
-        return;
-      }
       $('pptxBtn').disabled = true;
       $('pptxProg').style.display = 'block';
       setP('pptxBar', 'pptxLbl', 10, 'Uploading PPTX...');
@@ -353,7 +306,7 @@
         const form = new FormData();
         form.append('mode', 'pptx');
         form.append('file', pptxFile, pptxFile.name);
-        const resp = await fetch(`${apiBase}/api/mirror`, { method: 'POST', body: form });
+        const resp = await fetch('/api/mirror', { method: 'POST', body: form, credentials: 'same-origin' });
         if (!resp.ok) {
           let msg = 'Failed.';
           try {
@@ -373,10 +326,7 @@
       } catch (e) {
         const msg = e && e.message ? e.message : 'Failed.';
         if (String(msg).toLowerCase().includes('failed to fetch')) {
-          showErr(
-            'pptxErr',
-            `Error: Failed to reach the server. Check that the server is running and the URL is correct.`
-          );
+          showErr('pptxErr', 'Error: Failed to reach the server. Try again in a moment.');
         } else {
           showErr('pptxErr', 'Error: ' + msg);
         }

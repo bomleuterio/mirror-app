@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const license = require('./license');
 
 function createWindow () {
   console.log('Creating main window...');
@@ -70,6 +71,33 @@ ipcMain.handle('pick-ppt', async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+
+ipcMain.handle('license-check', async () => {
+  try {
+    return await license.validateLicense();
+  } catch (error) {
+    console.error('License check failed:', error);
+    return { ok: false, needsLogin: true, error: 'unexpected', message: 'Something went wrong checking your license.' };
+  }
+});
+
+ipcMain.handle('license-activate', async (event, email, licenseKey) => {
+  try {
+    return await license.activateLicense({ email, licenseKey });
+  } catch (error) {
+    console.error('License activation failed:', error);
+    return { ok: false, needsLogin: true, error: 'unexpected', message: 'Something went wrong activating your license.' };
+  }
+});
+
+ipcMain.handle('license-clear', async () => {
+  try {
+    return await license.clearLicense();
+  } catch (error) {
+    console.error('License clear failed:', error);
+    return { ok: true };
+  }
 });
 
 ipcMain.handle('pick-pdf', async () => {

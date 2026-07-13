@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "mock-license-server": "node scripts/mock-license-server.mjs",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win portable",
     "dist:dir": "electron-builder --win dir",
@@ -16,10 +17,12 @@
   "license": "ISC",
   "dependencies": {
     "mupdf": "^1.27.0",
+    "node-machine-id": "^1.1.12",
     "nodejs-pptx": "^1.2.5",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^4.0.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "electron": "^42.1.0",
@@ -33,7 +36,8 @@
       "**/*",
       "!dist{,/**}",
       "!electron{,/**}",
-      "!electron.zip"
+      "!electron.zip",
+      "!scripts{,/**}"
     ],
     "asar": true,
     "win": {

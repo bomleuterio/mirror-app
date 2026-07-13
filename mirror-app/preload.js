@@ -5,6 +5,11 @@ contextBridge.exposeInMainWorld('electron', {
   mirrorPdf: (filePath) => ipcRenderer.invoke('mirror-pdf', filePath),
   pickPpt: () => ipcRenderer.invoke('pick-ppt'),
   pickPdf: () => ipcRenderer.invoke('pick-pdf'),
+  license: {
+    check: () => ipcRenderer.invoke('license-check'),
+    activate: (email, licenseKey) => ipcRenderer.invoke('license-activate', email, licenseKey),
+    clear: () => ipcRenderer.invoke('license-clear'),
+  },
 });
 
 window.addEventListener('DOMContentLoaded', () => {

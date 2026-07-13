@@ -21,6 +21,96 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   };
 
+  const getLicenseApi = () => {
+    if (window.electron && window.electron.license) return window.electron.license;
+    if (typeof window.require === 'function') {
+      try {
+        const { ipcRenderer } = window.require('electron');
+        return {
+          check: () => ipcRenderer.invoke('license-check'),
+          activate: (email, licenseKey) => ipcRenderer.invoke('license-activate', email, licenseKey),
+          clear: () => ipcRenderer.invoke('license-clear'),
+        };
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  function showLocked(message) {
+    $('appMain').style.display = 'none';
+    $('logoutLink').style.display = 'none';
+    $('lockOverlay').style.display = 'flex';
+    $('lockForm').style.display = 'block';
+    $('lockSub').textContent = message || 'Sign in with your subscription to continue.';
+  }
+
+  function showUnlocked() {
+    $('lockOverlay').style.display = 'none';
+    $('appMain').style.display = 'flex';
+    $('logoutLink').style.display = 'block';
+  }
+
+  async function checkLicense() {
+    const licenseApi = getLicenseApi();
+    if (!licenseApi) {
+      showLocked('This app must be run inside the Electron app.');
+      return;
+    }
+    $('lockSub').textContent = 'Checking your subscription…';
+    $('lockForm').style.display = 'none';
+    const result = await licenseApi.check();
+    if (result && result.ok) {
+      showUnlocked();
+    } else {
+      showLocked(result && result.message);
+    }
+  }
+
+  const lockBtn = $('lockBtn');
+  if (lockBtn) {
+    lockBtn.addEventListener('click', async () => {
+      const licenseApi = getLicenseApi();
+      const email = $('lockEmail').value.trim();
+      const key = $('lockKey').value.trim();
+      clearErr('lockErr');
+      if (!licenseApi) {
+        showErr('lockErr', 'This app must be run inside the Electron app.');
+        return;
+      }
+      if (!email || !key) {
+        showErr('lockErr', 'Enter your email and license key.');
+        return;
+      }
+      lockBtn.disabled = true;
+      try {
+        const result = await licenseApi.activate(email, key);
+        if (result && result.ok) {
+          showUnlocked();
+        } else {
+          showErr('lockErr', (result && result.message) || 'Activation failed.');
+        }
+      } finally {
+        lockBtn.disabled = false;
+      }
+    });
+  }
+
+  const logoutLink = $('logoutLink');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const licenseApi = getLicenseApi();
+      if (licenseApi) await licenseApi.clear();
+      $('lockEmail').value = '';
+      $('lockKey').value = '';
+      showLocked('Signed out.');
+    });
+  }
+
+  checkLicense();
+
   const getShell = () => {
     if (typeof window.require !== 'function') return null;
     try {
