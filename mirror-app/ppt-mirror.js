@@ -81,11 +81,22 @@ async function exportSlidesLibreOffice(inputPath, exportDir, tmpRoot) {
     inputPath,
   ], {
     encoding: 'utf8',
-    timeout: 120000,
+    timeout: 600000,
     env: { ...process.env, HOME: loHome },
   });
 
-  if (result.error) throw new Error(`LibreOffice not found: ${result.error.message}`);
+  if (result.error) {
+    if (result.error.code === 'ETIMEDOUT') {
+      throw new Error('LibreOffice conversion timed out. The file may be too large or complex for this server to convert in time.');
+    }
+    if (result.error.code === 'ENOENT') {
+      throw new Error(`LibreOffice not found: ${result.error.message}`);
+    }
+    throw new Error(`LibreOffice conversion failed: ${result.error.message}`);
+  }
+  if (result.signal) {
+    throw new Error(`LibreOffice conversion was terminated (signal ${result.signal}), likely due to running out of memory.`);
+  }
   if (result.status !== 0) {
     throw new Error(`LibreOffice failed:\n${result.stderr || result.stdout}`);
   }
